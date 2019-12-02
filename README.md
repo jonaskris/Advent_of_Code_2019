@@ -6,12 +6,12 @@ Solved with C++ 17 using CMake.
 
 ## Cloning
 
-    git clone https://github.com/jonaskris/Advent_of_Code.git
+    git clone https://github.com/jonaskris/Advent_of_Code_2019.git
 
 ## Building
-The project is compiled using CMake.
+The project is built using CMake.
 
-Run commands below from the main directory.
+Run commands below from the main directory. (Linux)
 
     mkdir build 
     cd build 
