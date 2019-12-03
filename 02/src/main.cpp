@@ -1,7 +1,7 @@
 #include <iostream>     // std::cout
 #include <fstream>      // ifstream
 #include <vector>       // std::vector
-#include <string>       // std::string && std::getline
+#include <string>       // std::string && std::getline && std::stoul
 
 unsigned int runIntcode(std::vector<unsigned int> intcode, unsigned int noun, unsigned int verb)
 {
