@@ -41,7 +41,7 @@ struct Wire
 {
 private:
     // Separating horizontal and vertical WireSegments simplifies the intersection test
-    // and lets us decrease number of intersection checks as parallel lines cant intersect.
+    // and lets us decrease the number of tests as parallel lines cant intersect.
     std::vector<WireSegment> horizontalWireSegments;
     std::vector<WireSegment> verticalWireSegments;
 
