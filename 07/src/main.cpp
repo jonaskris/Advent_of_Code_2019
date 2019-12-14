@@ -2,8 +2,9 @@
 #include <fstream>      // ifstream
 #include <vector>       // std::vector
 #include <string>       // std::string && std::getline && std::stoul && std::stoi
-#include <deque>        // std::deque
+#include <queue>        // std::queue
 #include <algorithm>    // std::next_permutation && std::max
+#include <optional>     // std::optional
 
 unsigned int factorial(unsigned int i)
 {
@@ -12,95 +13,126 @@ unsigned int factorial(unsigned int i)
 
 class IntcodeComputer
 {
+public:
+    enum State{ READY, RUNNING, WAITING, TERMINATED };
+
 private:
     std::vector<int> intcode;
     unsigned int ip = 0; // Instruction pointer
+    State state = READY;
 
-    std::deque<int> lastOutput;
+    std::queue<int> input;
+    std::queue<int> output;
+
+    State step(unsigned int op, int& first, int& second, int& third)
+    {
+        switch(op)
+        {
+            case 1: // Add
+                third = first + second;
+
+                ip += 4;
+                return RUNNING;
+            case 2: // Multiply
+                third = first * second;
+
+                ip += 4;
+                return RUNNING;
+            case 3: // Input
+                if(input.empty())
+                    return WAITING;
+
+                first = input.front();
+                input.pop();
+
+                ip += 2;
+                return RUNNING;
+            case 4: // Output
+                output.push(first);
+
+                ip += 2;
+                return RUNNING;
+            case 5: // Jump-if-true
+                if(first)
+                    ip = second;
+                else
+                    ip += 3;
+                return RUNNING;
+            case 6: // Jump-if-false
+                 if(!first)
+                    ip = second;
+                else
+                    ip += 3;
+                return RUNNING;
+            case 7: // Less than
+                if(first < second)
+                    third = 1;
+                else
+                    third = 0;
+                
+                ip += 4;
+                return RUNNING;
+            case 8: // Equals
+                if(first == second)
+                    third = 1;
+                else
+                    third = 0;
+                ip += 4;
+                return RUNNING;
+            case 99: // Terminate
+                return TERMINATED;
+
+            default: // Undefined operator
+                std::cerr << "Tried executing undefined operator, exiting..." << std::endl;
+                exit(EXIT_FAILURE);
+        }
+    }
+
 public:
-    enum EXIT_CODE{ TERMINATED, WAITING };
-
     IntcodeComputer(std::vector<int> intcode) : intcode(intcode) {}
 
-    EXIT_CODE runIntcode(std::deque<int> input = {})
+    std::queue<int> process()
     {
-        lastOutput.clear();
+        this->output = {};
 
-        while(true)
+        do
         {
             // Read operation
             unsigned int op = intcode[ip];
             std::string opStr = std::to_string(op);
 
-            unsigned int    de =(opStr.size() >= 2)?( std::stoul(opStr.substr(opStr.size() - 2, 2)) ):( std::stoul(opStr.substr(opStr.size() - 1, 1)) ),   // Operation
-                            c = (opStr.size() >= 3)?( std::stoul(opStr.substr(opStr.size() - 3, 1)) ):(0),  // Mode first parameter
-                            b = (opStr.size() >= 4)?( std::stoul(opStr.substr(opStr.size() - 4, 1)) ):(0),  // Mode second parameter
-                            a = (opStr.size() >= 5)?( std::stoul(opStr.substr(opStr.size() - 5, 1)) ):(0);  // Mode third parameter
+            unsigned int    de =(opStr.size() >= 2)?( std::stoul(opStr.substr(opStr.size() - 2, 2)) ):( std::stoul(opStr.substr(opStr.size() - 1, 1)) );   // Operation
+            int c = (opStr.size() >= 3)?( std::stoul(opStr.substr(opStr.size() - 3, 1)) ):(0),  // Mode first parameter
+                b = (opStr.size() >= 4)?( std::stoul(opStr.substr(opStr.size() - 4, 1)) ):(0),  // Mode second parameter
+                a = (opStr.size() >= 5)?( std::stoul(opStr.substr(opStr.size() - 5, 1)) ):(0);  // Mode third parameter
 
             // Parameters point to either the immediate value or value at address depending on the three modes
             int& firstParameter = (c)?(intcode[ip + 1]):(intcode[intcode[ip + 1]]);
             int& secondParameter = (b)?(intcode[ip + 2]):(intcode[intcode[ip + 2]]);
             int& thirdParameter = (a)?(intcode[ip + 3]):(intcode[intcode[ip + 3]]);
 
-            // Execute OP
-            if(de == 1)         // Add
-            {
-                thirdParameter = firstParameter + secondParameter;
-                ip += 4;
-            } else if(de == 2)  // Multiply
-            {
-                thirdParameter = firstParameter * secondParameter;
-                ip += 4;
-            } else if(de == 3)  // Input integer
-            {
-                ip += 2;
+            // Execute operation
+            state = step(de, firstParameter, secondParameter, thirdParameter);
+        } while(state == RUNNING);
 
-                if(!input.empty())
-                {
-                    firstParameter = input.front();
-                    input.pop_front();
-                } else
-                    return WAITING;
-            } else if(de == 4)  // Output integer
-            {
-                lastOutput.clear();
-                lastOutput.push_back(firstParameter);
-                ip += 2;
-            } else if(de == 5)  // Jump-if-true
-            {
-                if(firstParameter)
-                    ip = secondParameter;
-                else
-                    ip += 3;
-            } else if(de == 6)  // Jump-if-false
-            {
-                if(!firstParameter)
-                    ip = secondParameter;
-                else
-                    ip += 3;
-            } else if(de == 7)  // Less than
-            {
-                if(firstParameter < secondParameter)
-                    thirdParameter = 1;
-                else
-                    thirdParameter = 0;
-                ip += 4;
-            } else if(de == 8)  // Equals
-            {
-                if(firstParameter == secondParameter)
-                    thirdParameter = 1;
-                else
-                    thirdParameter = 0;
-                ip += 4;
-            } else if(de == 99)  // Terminate
-                return TERMINATED;
+        return output;
+    }
+
+    void addInput(std::queue<int> input)
+    {
+        while(!input.empty())
+        {
+            this->input.push(input.front());
+            input.pop();
         }
     }
 
-    std::deque<int> getLastOutput()
+    void addInput(int input)
     {
-        return lastOutput;
+        this->input.push(input);
     }
+
+    State getState() const { return state; }
 };
 
 
@@ -127,21 +159,27 @@ int main()
         int maxOutput = 0;
         for(size_t i = 0; i < factorial(phaseSettings.size()); i++) // For every possible permutation of phase settings
         {
-            std::vector<IntcodeComputer> computers(5, intcode);
+            std::vector<IntcodeComputer> amplifiers(5, intcode);
 
-            std::deque<int> input = {0};
-            for(size_t j = 0; j < computers.size(); j++) // Run intcode once for every amplifier
-            {
-                if(j != 0)
-                    input = computers[(j-1) % computers.size()].getLastOutput();
-                
-                // Use last computers output as input
-                input.push_front(phaseSettings[j]);
+            // Set initial input
+            for(size_t j = 0; j < amplifiers.size(); j++)
+                amplifiers[j].addInput(phaseSettings[j]);
 
-                computers[j].runIntcode(input);
+            amplifiers[0].addInput(0);
+
+            std::queue<int> lastOutput;
+
+            // Run code once for every amplifier
+            for(size_t j = 0; j < amplifiers.size(); j++)
+            {   
+                lastOutput = amplifiers[j].process();
+
+                // Set input of next amplifier
+                if(j != 4)
+                    amplifiers[j+1].addInput(lastOutput);
             }
 
-            maxOutput = std::max(maxOutput, computers[4].getLastOutput().back());
+            maxOutput = std::max(maxOutput, lastOutput.back());
             std::next_permutation(phaseSettings.begin(), phaseSettings.end());
         }
 
@@ -150,42 +188,39 @@ int main()
 
     // Part 2
     {
-        //std::vector<int> phaseSettings {5, 6, 7, 8, 9};
-        std::vector<int> phaseSettings {9,7,8,5,6};
+        std::vector<int> phaseSettings {5, 6, 7, 8, 9};
 
         int maxOutput = 0;
         for(size_t i = 0; i < factorial(phaseSettings.size()); i++) // For every possible permutation of phase settings
         {
-            std::vector<IntcodeComputer> computers(5, intcode);
+            std::vector<IntcodeComputer> amplifiers(5, intcode);
 
-            unsigned int terminatedExitCodeCounter = 0;
+            // Set initial input
+            for(size_t j = 0; j < amplifiers.size(); j++)
+                amplifiers[j].addInput(phaseSettings[j]);
 
-            std::deque<int> input = {0};
+            amplifiers[0].addInput(0);
+
+            std::queue<int> lastOutput;
             int j = 0;
-            while(terminatedExitCodeCounter < 5) // Run intcode for every computer until all have terminated
-            {
-                // Use last computers output as input
-                if(j != 0)
-                    input = computers[(j-1) % computers.size()].getLastOutput();
-                
-                // Specify phase setting for first run of every computer
-                if(j < 5)
-                    input.push_front(phaseSettings[j]);
 
-                if(computers[j % computers.size()].runIntcode(input) == IntcodeComputer::TERMINATED)
-                    terminatedExitCodeCounter++;
+            // Run code for every amplifier until last has terminated
+            while(amplifiers[4].getState() != IntcodeComputer::State::TERMINATED)
+            {
+                // Process input
+                lastOutput = amplifiers[j%5].process();
+                
+                // Set input of next amplifier
+                amplifiers[(j+1)%5].addInput(lastOutput);
 
                 j++;
             }
 
-            maxOutput = std::max(maxOutput, computers[4].getLastOutput().back());
-
-            //std::cout << maxOutput << std::endl;    // Temporary to test examples with specific phase settings
-            //std::cin.get();                         // Temporary to test examples with specific phase settings
-
+            maxOutput = std::max(maxOutput, lastOutput.back());
             std::next_permutation(phaseSettings.begin(), phaseSettings.end());
         }
 
         std::cout << "Part 2: \n\tThe highest signal that can be sent to the thrusters is: " << maxOutput << std::endl;       
     }
+    
 }
