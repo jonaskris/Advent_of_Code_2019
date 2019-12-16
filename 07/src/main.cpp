@@ -4,7 +4,6 @@
 #include <string>       // std::string && std::getline && std::stoul && std::stoi
 #include <queue>        // std::queue
 #include <algorithm>    // std::next_permutation && std::max
-#include <optional>     // std::optional
 
 unsigned int factorial(unsigned int i)
 {
